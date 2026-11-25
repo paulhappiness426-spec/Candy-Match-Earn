@@ -5,7 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 const store = require('./store');
 const { verifyInitData } = require('./auth');
-const G = require('./shared/game-core');
+const G = require('./game-core');
 
 const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN || '';
