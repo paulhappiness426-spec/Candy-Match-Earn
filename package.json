@@ -4,7 +4,7 @@
   "description": "Candy Match - Telegram Mini App match-3 game with coins, boosters, referrals and withdrawals",
   "main": "server/server.js",
   "scripts": {
-    "start": "node server/server.js",
+    "start": "node server.js",
     "dev": "ALLOW_DEV_AUTH=1 ADMIN_KEY=devadmin node server/server.js",
     "test": "node tests/api.test.js"
   },
