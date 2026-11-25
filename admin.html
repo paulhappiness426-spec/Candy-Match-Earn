@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Candy Match Admin</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+body{margin:0;padding:16px;background:#12042b;color:#fff;font-family:system-ui,sans-serif}
+h1{color:#ff7ae0;margin:0 0 12px}input,button,select{font:inherit;padding:10px;border-radius:10px;border:2px solid #7a3cff;background:#1c0640;color:#fff}
+button{cursor:pointer;background:#7a3cff}button.green{background:#119a5c;border-color:#2fe38a}button.red{background:#9a1130;border-color:#ff4f6d}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:8px;border-bottom:1px solid #ffffff22;text-align:left;vertical-align:top;word-break:break-all}.pending{color:#ffcc66}.paid{color:#7dffb8}.rejected{color:#ff9aae}
+</style></head><body>
+<h1>Withdrawals</h1>
+<div class="row">
+  <input id="key" type="password" placeholder="Admin key" style="flex:1;min-width:180px">
+  <select id="status"><option value="pending">Pending</option><option value="all">All</option><option value="paid">Paid</option><option value="rejected">Rejected</option></select>
+  <button id="load">Load</button>
+</div>
+<div id="msg"></div>
+<table><thead><tr><th>#</th><th>Player</th><th>Coins</th><th>USD</th><th>Method</th><th>Pay to</th><th>Status</th><th></th></tr></thead><tbody id="rows"></tbody></table>
+<script>
+const $=s=>document.querySelector(s);
+const tg=window.Telegram&&Telegram.WebApp;
+$('#key').value=sessionStorage.getItem('adminKey')||'';
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function call(path,body){
+  const headers={'Content-Type':'application/json','X-Admin-Key':$('#key').value};
+  if(tg&&tg.initData)headers['X-Telegram-Init-Data']=tg.initData;
+  const r=await fetch(path,{method:body?'POST':'GET',headers,body:body?JSON.stringify(body):undefined});
+  const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Failed');return d;
+}
+async function load(){
+  $('#msg').textContent='';sessionStorage.setItem('adminKey',$('#key').value);
+  try{
+    const d=await call('/api/admin/withdrawals?status='+$('#status').value);
+    $('#rows').innerHTML=d.withdrawals.map(w=>`<tr><td>${w.id}</td><td>${esc(w.userName)}<br><small>${esc(w.userId)}</small></td><td>${w.amount.toLocaleString()}</td><td>$${w.usd.toFixed(2)}</td><td>${w.method}</td><td>${esc(w.address)}</td><td class="${w.status}">${w.status}</td>
+    <td>${w.status==='pending'?`<button class="green" onclick="act('paid',${w.id})">Mark paid</button> <button class="red" onclick="act('reject',${w.id})">Reject + refund</button>`:''}</td></tr>`).join('')||'<tr><td colspan="8">Nothing here.</td></tr>';
+  }catch(e){$('#msg').textContent=e.message}
+}
+async function act(a,id){
+  if(!confirm(a==='paid'?'Mark #'+id+' as PAID?':'Reject #'+id+' and refund the coins?'))return;
+  try{await call('/api/admin/withdrawals/'+a,{id});load()}catch(e){$('#msg').textContent=e.message}
+}
+$('#load').onclick=load;$('#status').onchange=load;if($('#key').value)load();
+</script></body></html>

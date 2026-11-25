@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: candy-match
+    runtime: node
+    plan: starter            # a persistent disk needs a paid plan; the free plan wipes data on every restart
+    buildCommand: echo "no build step"
+    startCommand: node server/server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: BOT_TOKEN
+        sync: false          # paste your token from @BotFather in the Render dashboard
+      - key: ADMIN_KEY
+        sync: false          # choose a long random password for the admin page
+      - key: BOT_USERNAME
+        value: candymatchs_bot
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: candy-data
+      mountPath: /var/data
+      sizeGB: 1

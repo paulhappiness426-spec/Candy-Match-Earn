@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Candy Match</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@600;700&display=swap">
+<link rel="stylesheet" href="/style.css">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+<div id="bg">
+  <i class="cube c1"></i><i class="cube c2"></i><i class="cube c3"></i><i class="cube c4"></i><i class="cube c5"></i>
+  <i class="ray r1"></i><i class="ray r2"></i><i class="ray r3"></i>
+</div>
+
+<div id="app">
+  <header class="top">
+    <button class="who" id="btnProfile" aria-label="Profile">
+      <span class="avatar"><img id="avatar" alt=""></span>
+      <span class="name" id="uname">Player</span>
+    </button>
+    <button class="coins" id="btnWallet" aria-label="Wallet">
+      <span class="coin"></span><b id="coinAmt">0</b><span class="dot" id="dailyDot" hidden></span>
+    </button>
+  </header>
+
+  <h1 class="title">4D CANDY CRUSH</h1>
+
+  <section class="bar">
+    <div class="stat">
+      <svg class="gem" viewBox="0 0 48 48"><polygon points="24,3 44,17 37,43 11,43 4,17" fill="#8a3cff" stroke="#d6a8ff" stroke-width="2.5"/><polygon points="24,3 34,17 24,43 14,17" fill="#b985ff" opacity=".8"/></svg>
+      <div><small>SCORE</small><b class="c-blue" id="score">0</b></div>
+    </div>
+    <div class="stat mid">
+      <svg class="tgt" viewBox="0 0 48 48" fill="none" stroke="#ff6fd0" stroke-width="3"><circle cx="24" cy="24" r="16"/><circle cx="24" cy="24" r="6"/><path d="M24 2v10M24 36v10M2 24h10M36 24h10"/></svg>
+      <div><small>MOVES</small><b class="c-pink" id="moves">0</b></div>
+    </div>
+    <button class="play" id="btnPlay">PLAY <span>&#9654;</span></button>
+  </section>
+
+  <section class="prog">
+    <div class="prow"><span id="lvl">LEVEL 1</span><span id="tgtTxt">TARGET 0</span></div>
+    <div class="pbar"><i id="pfill"></i></div>
+    <div class="hint" id="hint"></div>
+  </section>
+
+  <section class="boardwrap" id="boardwrap">
+    <span class="mode">4D MODE</span>
+    <div class="floater f-lolli"><img data-sprite="lollipop" alt=""></div>
+    <div class="floater f-bear"><img data-sprite="bearY" alt=""></div>
+    <div class="floater f-donut"><img data-sprite="donut" alt=""></div>
+    <div class="floater f-soda"><span class="glowcube"></span><img data-sprite="soda" alt=""></div>
+    <div class="board3d">
+      <div class="board" id="board"><div class="grid" id="grid"></div><div class="fxlayer" id="fx"></div></div>
+    </div>
+  </section>
+
+  <section class="boosters" id="boosters"></section>
+
+  <section class="lb">
+    <div class="lbh"><span>&#127942;</span> LEADERBOARD</div>
+    <div id="lbRows"></div>
+  </section>
+</div>
+
+<nav class="foot">
+  <button data-tab="home" class="on"><i>&#127968;</i><span>HOME</span></button>
+  <button data-tab="boosters"><i>&#127852;</i><span>BOOSTERS</span></button>
+  <button data-tab="shop"><i>&#128717;</i><span>SHOP</span></button>
+</nav>
+
+<div id="sheet" hidden></div>
+<div id="toast"></div>
+<div id="fatal" hidden></div>
+
+<script src="/shared/game-core.js"></script>
+<script src="/sprites.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
