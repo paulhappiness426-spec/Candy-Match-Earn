@@ -62,11 +62,50 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;paddin
    linear-gradient(rgba(255,79,216,.45) 1.5px,transparent 1.5px) 0 0/var(--cell) var(--cell),
    linear-gradient(90deg,rgba(255,79,216,.45) 1.5px,transparent 1.5px) 0 0/var(--cell) var(--cell),
    linear-gradient(180deg,#3d1478,#2a0b5a)}
-.candy{position:absolute;left:0;top:0;width:var(--cell);height:var(--cell);padding:3px;transition:transform .24s cubic-bezier(.3,.8,.4,1);will-change:transform;touch-action:none}
-.candy img{width:100%;height:100%;display:block;pointer-events:none;filter:drop-shadow(0 5px 4px rgba(0,0,0,.5)) drop-shadow(0 0 3px rgba(255,255,255,.18))}
+.candy{position:absolute;left:0;top:0;width:var(--cell);height:var(--cell);padding:1px;transition:transform .24s cubic-bezier(.3,.8,.4,1);touch-action:none}
+.candy img{width:100%;height:100%;display:block;pointer-events:none;filter:drop-shadow(0 4px 3px rgba(0,0,0,.45))}
 .candy.sel img{animation:pulse .5s ease-in-out infinite alternate;filter:drop-shadow(0 0 10px #fff) drop-shadow(0 0 16px var(--pink))}
-.candy.pop{transition:transform .22s,opacity .22s;opacity:0}
-.candy.pop img{animation:none;transform:scale(1.5)}
+.candy img{transform-origin:50% 88%}
+/* 1) matched candies sparkle (glow + wiggle) ... */
+.candy.sparkle{z-index:3}
+.candy.sparkle img{animation:spark .12s ease-in-out infinite alternate;filter:brightness(1.4) saturate(1.25) drop-shadow(0 0 8px #fff) drop-shadow(0 0 18px #ffe36a)}
+@keyframes spark{from{transform:scale(1.04) rotate(-3deg)}to{transform:scale(1.2) rotate(4deg)}}
+/* 2) ... then pop: squash, big overshoot, shrink away */
+.candy.pop{z-index:4;transition:none}
+.candy.pop img{animation:popout var(--pd,.26s) cubic-bezier(.3,1.5,.5,1) forwards;filter:brightness(1.6) drop-shadow(0 0 14px #fff)}
+@keyframes popout{0%{transform:scale(1)}30%{transform:scale(1.5,1.3)}60%{transform:scale(1.2) rotate(8deg);opacity:1}100%{transform:scale(0) rotate(40deg);opacity:0}}
+/* falling candies squash and bounce when they land */
+.candy img.land{animation:land .42s ease-out}
+@keyframes land{0%{transform:scale(1.14,.74)}30%{transform:scale(.92,1.14)}55%{transform:scale(1.05,.95)}78%{transform:scale(.99,1.02)}100%{transform:scale(1)}}
+
+/* effects layer */
+#pfx{position:fixed;left:0;top:0;z-index:45;pointer-events:none}
+.sflash{position:fixed;inset:0;z-index:44;pointer-events:none;opacity:0;animation:sflash .45s ease-out forwards}
+.sflash.white{background:radial-gradient(circle at var(--x) var(--y),rgba(255,255,255,.95),rgba(255,230,250,.35) 38%,transparent 70%)}
+.sflash.rainbow{animation-duration:.8s;background:radial-gradient(circle at var(--x) var(--y),#fff,rgba(255,255,255,0) 45%),linear-gradient(115deg,rgba(255,59,59,.5),rgba(255,159,28,.5),rgba(255,225,74,.5),rgba(61,220,132,.5),rgba(53,208,240,.5),rgba(138,107,255,.5),rgba(255,63,208,.5))}
+@keyframes sflash{0%{opacity:0}12%{opacity:1}100%{opacity:0}}
+.shake1{animation:shake1 .42s linear}
+.shake2{animation:shake2 .66s linear}
+@keyframes shake1{0%,100%{translate:0 0}15%{translate:-6px 3px;rotate:-.4deg}30%{translate:6px -4px;rotate:.4deg}45%{translate:-5px -2px}60%{translate:4px 3px}80%{translate:-2px 1px}}
+@keyframes shake2{0%,100%{translate:0 0}10%{translate:-12px 7px;rotate:-1deg}20%{translate:12px -8px;rotate:1deg}30%{translate:-10px -5px;rotate:-.8deg}40%{translate:9px 6px;rotate:.8deg}55%{translate:-6px 3px}70%{translate:4px -3px}85%{translate:-2px 1px}}
+.praise{position:absolute;left:50%;top:44%;z-index:9;pointer-events:none;white-space:nowrap;font-family:var(--font);font-weight:900;font-style:italic;letter-spacing:1px;
+  font-size:clamp(34px,12vw,54px);color:#fff;-webkit-text-stroke:3px #5a1190;paint-order:stroke fill;
+  text-shadow:0 4px 0 #5a1190,0 0 18px #ff3fd0,0 0 36px #ff3fd0;transform:translate(-50%,-50%);animation:praise 1.2s cubic-bezier(.2,1.4,.4,1) forwards}
+.praise.t2{font-size:clamp(40px,14vw,64px)}
+.praise.t3{font-size:clamp(34px,12.5vw,58px);background:linear-gradient(90deg,#ff3b3b,#ff9f1c,#ffe14a,#3ddc84,#35d0f0,#8a6bff,#ff3fd0);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 14px #fff)}
+.praise[data-word=SWEET]{color:#ffd0ea}.praise[data-word=TASTY]{color:#fff2a0}.praise[data-word=DELICIOUS]{color:#b8ffcf}.praise[data-word=DIVINE]{color:#d9c8ff}
+@keyframes praise{0%{transform:translate(-50%,-50%) scale(.1) rotate(-14deg);opacity:0}16%{transform:translate(-50%,-50%) scale(1.35) rotate(4deg);opacity:1}30%{transform:translate(-50%,-50%) scale(1) rotate(-2deg)}78%{transform:translate(-50%,-50%) scale(1.04) rotate(1deg);opacity:1}100%{transform:translate(-50%,-92%) scale(1.15);opacity:0}}
+.pts.big{font-size:30px;color:#ffe36a;text-shadow:0 0 10px #ff9f1c,0 0 22px #ff3fd0;animation-duration:1.2s;z-index:8}
+.pts.mega{font-size:42px;color:#fff;text-shadow:0 0 12px #35d0f0,0 0 26px #ff3fd0,0 0 40px #ffe14a;animation-duration:1.5s;z-index:8}
+.beam{position:absolute;z-index:7;pointer-events:none;opacity:0;border-radius:12px;background:linear-gradient(90deg,#ff3b3b,#ff9f1c,#ffe14a,#3ddc84,#35d0f0,#8a6bff,#ff3fd0);box-shadow:0 0 28px 8px rgba(255,255,255,.85),0 0 50px 14px rgba(255,63,208,.7)}
+.beam.h{transform-origin:50% 50%;animation:beamh .7s ease-out forwards}
+.beam.v{transform-origin:50% 50%;background:linear-gradient(180deg,#ff3b3b,#ff9f1c,#ffe14a,#3ddc84,#35d0f0,#8a6bff,#ff3fd0);animation:beamv .7s ease-out forwards}
+@keyframes beamh{0%{transform:scaleX(0) scaleY(.4);opacity:1}35%{transform:scaleX(1) scaleY(1);opacity:1}100%{transform:scaleX(1.05) scaleY(.1);opacity:0}}
+@keyframes beamv{0%{transform:scaleY(0) scaleX(.4);opacity:1}35%{transform:scaleY(1) scaleX(1);opacity:1}100%{transform:scaleY(1.05) scaleX(.1);opacity:0}}
+.mute{width:44px;height:44px;border-radius:50%;border:2px solid var(--line);background:linear-gradient(180deg,#4a0f7d,#2a0750);box-shadow:0 0 12px rgba(255,79,216,.6),inset 0 0 10px rgba(255,79,216,.3);font-size:22px;display:flex;align-items:center;justify-content:center;flex:none}
+.mute.off{opacity:.65;filter:grayscale(.5)}
+.topr{display:flex;align-items:center;gap:10px}
+.boardwrap.slowmo .board{filter:saturate(1.35) brightness(1.08)}
 .candy.target img{filter:drop-shadow(0 0 10px #ffd23f)}
 @keyframes pulse{from{transform:scale(1)}to{transform:scale(1.14)}}
 .locked .candy{pointer-events:none}

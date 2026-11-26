@@ -1,10 +1,24 @@
 /* Glossy 3D candy sprites, drawn with canvas gradients (no image files needed). */
 (function () {
   'use strict';
-  const S = 200;
+  const S = 200;            // drawing coordinate space (all candy art is drawn in 200x200)
+  const K = 3;              // render scale: sprites are baked at 600x600 so they stay sharp on 3x phone screens
   const TAU = Math.PI * 2;
 
-  function mk() { const c = document.createElement('canvas'); c.width = c.height = S; return [c, c.getContext('2d')]; }
+  function mk() { const c = document.createElement('canvas'); c.width = c.height = S * K; const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; return [c, x]; }
+
+  // depth pass: soft ambient-occlusion at the edges + warm top-left light, clipped to the candy's own shape
+  function depth(ctx) {
+    const W = S * K;
+    ctx.save(); ctx.globalCompositeOperation = 'source-atop';
+    let g = ctx.createRadialGradient(W * .36, W * .30, W * .04, W * .5, W * .52, W * .66);
+    g.addColorStop(0, 'rgba(255,250,240,.20)'); g.addColorStop(.5, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(40,0,70,.42)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, W);
+    g = ctx.createLinearGradient(0, W * .6, 0, W);          // bounce light from below
+    g.addColorStop(0, 'rgba(255,120,220,0)'); g.addColorStop(1, 'rgba(255,150,230,.22)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, W);
+    ctx.restore();
+  }
   function lin(ctx, x0, y0, x1, y1, stops) { const g = ctx.createLinearGradient(x0, y0, x1, y1); stops.forEach(s => g.addColorStop(s[0], s[1])); return g; }
   function rad(ctx, x0, y0, r0, x1, y1, r1, stops) { const g = ctx.createRadialGradient(x0, y0, r0, x1, y1, r1); stops.forEach(s => g.addColorStop(s[0], s[1])); return g; }
   function el(ctx, x, y, rx, ry, rot) { ctx.moveTo(x + rx * Math.cos(rot || 0), y + rx * Math.sin(rot || 0)); ctx.ellipse(x, y, rx, ry, rot || 0, 0, TAU); }
@@ -194,7 +208,8 @@
   const cache = {};
   function url(name) {
     if (cache[name]) return cache[name];
-    const [c, ctx] = mk(); ctx.save(); draw[name](ctx); ctx.restore();
+    const [c, ctx] = mk(); ctx.save(); ctx.scale(K, K); draw[name](ctx); ctx.restore();
+    if (name !== 'avatar') depth(ctx);
     return (cache[name] = c.toDataURL('image/png'));
   }
   window.Sprites = { ORDER, url, forType: (t) => url(ORDER[t % ORDER.length]) };

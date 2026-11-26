@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: starter            # a persistent disk needs a paid plan; the free plan wipes data on every restart
     buildCommand: echo "no build step"
-    startCommand: node server.js
+    startCommand: node server/server.js
     healthCheckPath: /api/health
     envVars:
       - key: BOT_TOKEN

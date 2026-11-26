@@ -5,7 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 const store = require('./store');
 const { verifyInitData } = require('./auth');
-const G = require('./game-core');
+const G = require('../shared/game-core');
 
 const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN || '';
@@ -92,7 +92,7 @@ function getOrCreateUser(tg, refParam) {
     const m = /^ref_(\d{1,15})$/.exec(String(refParam || ''));
     const refId = m ? m[1] : null;
     if (refId && refId !== tg.id && db.users[refId]) {
-      u.referredBy = refId;
+      u.referredBy = refId; // set once, at creation only => bonus can never be paid twice for the same player
       const r = db.users[refId];
       r.coins += REFERRAL_BONUS; r.refCount += 1; r.refEarned += REFERRAL_BONUS;
     }
@@ -190,7 +190,7 @@ routes['POST /api/level/finish'] = async (ctx) => {
   const won = st.over === 'won';
   u.score += st.score;
   let reward = 0;
-  const alreadyCleared = won && s.level < u.level;
+  const alreadyCleared = won && s.level < u.level; // replaying an old level pays nothing
   if (won && s.level === u.level) { reward = LEVEL_REWARD; u.coins += reward; u.level += 1; }
   store.save();
   return { won, score: st.score, reward, alreadyCleared, user: publicUser(u), leaderboard: leaderboard(u.id) };
@@ -243,17 +243,17 @@ routes['POST /api/admin/withdrawals/reject'] = async (ctx) => {
   if (!w) throw new HttpError(404, 'Not found');
   if (w.status !== 'pending') throw bad('Already ' + w.status);
   w.status = 'rejected'; w.paidAt = Date.now();
-  if (db.users[w.userId]) db.users[w.userId].coins += w.amount;
+  if (db.users[w.userId]) db.users[w.userId].coins += w.amount; // refund
   store.save();
   return { withdrawal: w };
 };
 
 // ---- static files ----
-const PUBLIC = path.join(__dirname);
+const PUBLIC = path.join(__dirname, '..', 'public');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
 function serveStatic(req, res, pathname) {
   let file;
-  if (pathname === '/shared/game-core.js') file = path.join(__dirname, 'game-core.js');
+  if (pathname === '/shared/game-core.js') file = path.join(__dirname, '..', 'shared', 'game-core.js');
   else {
     const rel = pathname === '/' ? '/index.html' : pathname;
     file = path.normalize(path.join(PUBLIC, rel));

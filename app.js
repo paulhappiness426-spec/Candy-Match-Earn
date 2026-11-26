@@ -163,6 +163,7 @@
     catch (e) { toast(e.message); playing = false; busy = false; showDemo(); return; }
     applyServer(res); playing = false; busy = false;
     const won = res.won;
+    if (won) { Sound.win(); FX.flash('rainbow'); FX.burst(window.innerWidth / 2, window.innerHeight * 0.35, { count: 120, colors: FX.RAINBOW, power: 520, confetti: true, size: 6 }); } else Sound.lose();
     const cf = st;
     const body = won
       ? `<h2>LEVEL COMPLETE!</h2><div class="stars">&#9733;&#9733;&#9733;</div><p>Score ${fmt(res.score)}</p>
@@ -189,7 +190,7 @@
     busy = true; clearSelection();
     const res = G.applyAction(st, act);
     if (!res.ok) {
-      if (res.error === 'no_match' && act.t === 'swap') { await bounce(act.a, act.b); }
+      if (res.error === 'no_match' && act.t === 'swap') { Sound.swap(); await bounce(act.a, act.b); }
       busy = false; return false;
     }
     actions.push(act);
@@ -201,11 +202,91 @@
   async function bounce(a, b) {
     const ea = elAt(a[0], a[1]), eb = elAt(b[0], b[1]); if (!ea || !eb) return;
     place(ea, b[0], b[1]); place(eb, a[0], a[1]); await sleep(200);
-    place(ea, a[0], a[1]); place(eb, b[0], b[1]); await sleep(220); buzz('rigid');
+    place(ea, a[0], a[1]); place(eb, b[0], b[1]); Sound.nope(); await sleep(220); buzz('rigid');
   }
-  function pop(txt, r, c) {
-    const d = document.createElement('div'); d.className = 'pts'; d.textContent = txt;
-    d.style.left = (c + .5) * cellPx() + 'px'; d.style.top = (r + .5) * cellPx() + 'px'; $('#fx').appendChild(d); setTimeout(() => d.remove(), 900);
+  function pop(txt, r, c, cls) {
+    const d = document.createElement('div'); d.className = 'pts' + (cls ? ' ' + cls : ''); d.textContent = txt;
+    d.style.left = (c + .5) * cellPx() + 'px'; d.style.top = (r + .5) * cellPx() + 'px'; $('#fx').appendChild(d); setTimeout(() => d.remove(), cls ? 1500 : 900);
+  }
+
+  // ---------- juice: sounds + effects (visual only, never changes game state) ----------
+  // longest straight line among the cleared candies of one clear step
+  function runInfo(cells) {
+    const key = new Map(); cells.forEach(x => key.set(x.r * G.COLS + x.c, x.type));
+    const same = (r, c, t) => r >= 0 && c >= 0 && r < G.ROWS && c < G.COLS && key.get(r * G.COLS + c) === t;
+    let best = { len: 0, dir: 'h', r: 0, c: 0 };
+    for (const x of cells) for (const [dr, dc, dir] of [[0, 1, 'h'], [1, 0, 'v']]) {
+      if (same(x.r - dr, x.c - dc, x.type)) continue; // only start at the beginning of a line
+      let n = 1; while (same(x.r + dr * n, x.c + dc * n, x.type)) n++;
+      if (n > best.len) best = { len: n, dir, r: x.r + dr * (n - 1) / 2, c: x.c + dc * (n - 1) / 2 };
+    }
+    return best;
+  }
+  // 3 = normal match, 4 = big (4 in a line, or L/T shapes of 5+), 5 = mega (5+ in a line, or 8+ at once)
+  function tierOf(run, count) { return (run.len >= 5 || count >= 8) ? 5 : (run.len === 4 || count >= 5) ? 4 : 3; }
+  const PRAISE = ['SWEET!', 'TASTY!', 'DELICIOUS!', 'DIVINE!', 'SUGAR CRUSH!'];
+  function praiseFor(tier, combo, len) {
+    let rank = -1;
+    if (tier === 4) rank = 0;
+    if (tier >= 5) rank = len >= 6 ? 4 : 3;
+    if (combo === 2) rank = Math.max(rank, 1);
+    if (combo === 3) rank = Math.max(rank, 2);
+    if (combo >= 4) rank = Math.max(rank, 3);
+    return rank < 0 ? null : { text: PRAISE[rank], rank };
+  }
+  const centerOf = (el) => { const b = el.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; };
+  let matchCount = 0;
+
+  // sparkle first, then pop with scale + bounce; 4+ / 5+ add big effects
+  async function doClear(s) {
+    const run = runInfo(s.cells), tier = tierOf(run, s.cells.length);
+    const items = s.cells.map(x => ({ x, el: els.get(x.id) })).filter(i => i.el);
+    const pts = items.map(i => Object.assign(centerOf(i.el), { type: i.x.type }));
+    const cx = pts.reduce((a, p) => a + p.x, 0) / (pts.length || 1), cy = pts.reduce((a, p) => a + p.y, 0) / (pts.length || 1);
+    const wrap = $('#boardwrap');
+    const slow = tier >= 5 ? 2.2 : 1;                 // 5+ : slow-motion hold (~0.3s) before the explosion
+
+    // sounds
+    if (tier >= 5) Sound.match5(); else if (tier === 4) Sound.match4(); else Sound.match3(matchCount++);
+    if (s.combo > 1) Sound.combo(s.combo);
+
+    // 1) sparkle before popping
+    items.forEach((i, k) => { i.el.classList.add('sparkle'); FX.sparkle(pts[k].x, pts[k].y, tier >= 4 ? 4 : 2); });
+    if (tier >= 5) { wrap.classList.add('slowmo'); FX.flash('rainbow', cx, cy); FX.slowmo(300, 0.3); }
+    else if (tier === 4) FX.flash('white', cx, cy);
+    await sleep((tier >= 4 ? 140 : 100) * slow);
+
+    // 2) pop
+    const popMs = 260 * slow;
+    items.forEach(i => { i.el.classList.remove('sparkle'); i.el.style.setProperty('--pd', popMs + 'ms'); i.el.classList.add('pop'); });
+    pts.forEach(p => FX.burst(p.x, p.y, { count: tier >= 5 ? 9 : tier === 4 ? 7 : 5, colors: [FX.TYPE_COL[p.type % FX.TYPE_COL.length], '#fff'], power: tier >= 4 ? 280 : 170, size: tier >= 4 ? 7 : 5 }));
+
+    const gr = items.length ? items.reduce((a, i) => a + i.x.r, 0) / items.length : 0, gc = items.length ? items.reduce((a, i) => a + i.x.c, 0) / items.length : 0;
+    const label = '+' + fmt(s.points) + (s.combo > 1 ? ' x' + s.combo : '');
+    pop(label, gr, gc, tier >= 5 ? 'mega' : tier === 4 ? 'big' : '');
+
+    if (tier >= 4) {
+      FX.burst(cx, cy, { count: tier >= 5 ? 110 : 55, colors: tier >= 5 ? FX.RAINBOW : ['#ff3fd0', '#ffe14a', '#6df3ff', '#fff', '#7dff8a'], power: tier >= 5 ? 560 : 420, confetti: true, size: 6 });
+      FX.shake(wrap, tier >= 5 ? 2 : 1); buzz(tier >= 5 ? 'heavy' : 'medium');
+    }
+    if (tier >= 5) {
+      FX.ring(cx, cy, 520, 28);
+      FX.beam($('#fx'), run.dir, run.dir === 'h' ? Math.round(run.r) : Math.round(run.c), cellPx(), G.COLS, G.ROWS); // whole row / column explosion
+      setTimeout(() => wrap.classList.remove('slowmo'), 700);
+    }
+    const pr = praiseFor(tier, s.combo, run.len);
+    if (pr) FX.praise(pr.text, wrap, pr.rank >= 3 ? 3 : pr.rank >= 1 ? 2 : 1);
+    if (tier < 4) buzz(s.combo > 1 ? 'medium' : 'light');
+
+    shownScore += s.points; updateHud();
+    await sleep(popMs);
+    items.forEach(i => { i.el.remove(); els.delete(i.x.id); });
+  }
+  const fallDur = (d) => Math.min(0.6, 0.14 + 0.07 * d);
+  function dropTo(el, r, c, dur) {
+    el.style.transition = `transform ${dur}s cubic-bezier(.5,0,.85,.55)`;
+    place(el, r, c);
+    setTimeout(() => { el.style.transition = ''; const img = el.firstChild; if (img) { img.classList.remove('land'); void img.offsetWidth; img.classList.add('land'); } }, dur * 1000);
   }
   async function animate(steps) {
     for (const s of steps) {
@@ -213,21 +294,25 @@
         const ea = elAt(s.a[0], s.a[1]), eb = elAt(s.b[0], s.b[1]);
         if (ea && eb) { place(ea, s.b[0], s.b[1]); place(eb, s.a[0], s.a[1]); }
         shownMoves = Math.max(0, shownMoves - (actions[actions.length - 1].t === 'swap' ? 1 : 0)); updateHud();
+        Sound.swap();
         await sleep(230);
       } else if (s.k === 'clear') {
-        let sr = 0, sc = 0;
-        for (const x of s.cells) { const el = els.get(x.id); if (el) { el.classList.add('pop'); setTimeout(() => { el.remove(); els.delete(x.id); }, 230); } sr += x.r; sc += x.c; }
-        pop('+' + s.points + (s.combo > 1 ? ' x' + s.combo : ''), sr / s.cells.length, sc / s.cells.length);
-        shownScore += s.points; updateHud(); buzz(s.combo > 1 ? 'medium' : 'light');
-        await sleep(240);
+        await doClear(s);
       } else if (s.k === 'collapse') {
-        for (const f of s.falls) { const el = els.get(f.id); if (el) place(el, f.to, f.c); }
-        for (const sp of s.spawns) { const el = makeCandy(sp.id, sp.type, sp.from, sp.c); void el.offsetWidth; place(el, sp.to, sp.c); }
-        await sleep(300);
+        let longest = 0;
+        for (const f of s.falls) { const el = els.get(f.id); if (el) { const d = fallDur(f.to - f.from); longest = Math.max(longest, d); dropTo(el, f.to, f.c, d); } }
+        for (const sp of s.spawns) {
+          const el = makeCandy(sp.id, sp.type, sp.from, sp.c); void el.offsetWidth;
+          const d = fallDur(sp.to - sp.from); longest = Math.max(longest, d); dropTo(el, sp.to, sp.c, d);
+        }
+        setTimeout(() => Sound.land(), longest * 1000);
+        await sleep(longest * 1000 + 140); // let the landing bounce play
       } else if (s.k === 'shuffle') {
+        Sound.shuffle();
         for (const m of s.moved) { const el = els.get(m.id); if (el) { if (m.type != null) el.firstChild.src = Sprites.forType(m.type); place(el, m.r, m.c); } }
         if (s.auto) toast('No moves left - board shuffled'); await sleep(380);
       } else if (s.k === 'fx') {
+        Sound.impact(s.name); if (s.name === 'bomb') { FX.shake($('#boardwrap'), 1); FX.flash('white'); }
         const f = document.createElement('div'); f.className = 'flash';
         const size = cellPx() * (s.name === 'bomb' ? 3 : 1.4);
         f.style.cssText = `width:${size}px;height:${size}px;left:${(s.at[1] + .5) * cellPx() - size / 2}px;top:${(s.at[0] + .5) * cellPx() - size / 2}px`;
@@ -286,7 +371,7 @@
   async function spend(key, act) {
     if (busy) return;
     busy = true;
-    try { const d = await api('/api/booster/use', { type: key }); me = d.user; renderBoosters(); }
+    try { const d = await api('/api/booster/use', { type: key }); me = d.user; renderBoosters(); Sound.booster(key); }
     catch (e) { busy = false; toast(e.message); return; }
     busy = false;
     await perform(act);
@@ -440,6 +525,17 @@
   });
   document.querySelectorAll('img[data-sprite]').forEach(i => { i.src = Sprites.url(i.dataset.sprite); });
   window.addEventListener('resize', sizeBoard);
+
+  // sound: unlock audio on the first touch, click sound on every button, mute toggle
+  const muteBtn = $('#btnMute');
+  const paintMute = () => { const m = Sound.isMuted(); muteBtn.innerHTML = m ? '&#128263;' : '&#128266;'; muteBtn.classList.toggle('off', m); muteBtn.setAttribute('aria-pressed', m ? 'true' : 'false'); };
+  paintMute();
+  window.addEventListener('pointerdown', (e) => {
+    Sound.unlock();
+    const b = e.target.closest && e.target.closest('button');
+    if (b && b !== muteBtn && !b.classList.contains('bst')) Sound.click();
+  }, true);
+  muteBtn.onclick = () => { Sound.setMuted(!Sound.isMuted()); paintMute(); if (!Sound.isMuted()) Sound.click(); };
 
   // ---------- boot ----------
   async function boot() {
