@@ -15,6 +15,24 @@ const ADMIN_KEY = process.env.ADMIN_KEY || '';
 const ADMIN_IDS = (process.env.ADMIN_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
 const ALLOW_DEV_AUTH = process.env.ALLOW_DEV_AUTH === '1';
 
+// ---- Telegram notifications ----
+async function notifyPlayer(userId, text) {
+  if (!BOT_TOKEN || !userId) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: String(userId), text })
+    });
+  } catch (e) {}
+}
+async function notifyAdmin(text) {
+  if (!BOT_TOKEN || !ADMIN_IDS.length) return;
+  for (const adminId of ADMIN_IDS) {
+    notifyPlayer(adminId, text);
+  }
+}
+
 // ---- fixed economy (do not change) ----
 const WELCOME_BONUS = 100;
 const DAILY_BONUS = 50;
@@ -79,6 +97,7 @@ function checkAdmin(req) {
 function getOrCreateUser(tg, refParam) {
   let u = db.users[tg.id];
   let created = false;
+  let referrer = null;
   if (!u) {
     created = true;
     u = db.users[tg.id] = {
@@ -93,12 +112,22 @@ function getOrCreateUser(tg, refParam) {
       u.referredBy = refId;
       const r = db.users[refId];
       r.coins += REFERRAL_BONUS; r.refCount += 1; r.refEarned += REFERRAL_BONUS;
+      referrer = r;
     }
   } else {
     if (tg.name && u.name !== tg.name) u.name = tg.name;
     if (tg.photo) u.photo = tg.photo;
   }
-  if (created) store.save();
+  if (created) {
+    store.save();
+    if (referrer) {
+      notifyPlayer(referrer.id, `👥 New Referral! ${u.name} joined with your link! You earned +${REFERRAL_BONUS} coins.\nTotal referrals: ${referrer.refCount} | Total earned: ${referrer.refEarned} coins`);
+      notifyPlayer(u.id, `🎉 Welcome! You joined via ${referrer.name}'s link and got +${WELCOME_BONUS} welcome bonus!`);
+      notifyAdmin(`👥 New Referral!\nReferrer: ${referrer.name} (${referrer.id}) got +${REFERRAL_BONUS}\nNew Player: ${u.name} (${u.id})`);
+    } else {
+      notifyAdmin(`🆕 New Player!\nName: ${u.name}\nID: ${u.id}\nCoins: ${u.coins}`);
+    }
+  }
   return u;
 }
 
@@ -214,6 +243,8 @@ routes['POST /api/withdraw'] = async (ctx) => {
   u.coins -= amount;
   const w = { id: db.nextWithdrawalId++, userId: u.id, userName: u.name, amount, usd: Math.round(amount / COINS_PER_DOLLAR * 100) / 100, method, address, status: 'pending', createdAt: Date.now() };
   db.withdrawals.push(w); store.save();
+  notifyPlayer(u.id, `💰 Withdraw Request Received!\nAmount: ${amount.toLocaleString('en-US')} coins ($${w.usd})\nMethod: ${method}\nTo: ${address}\nStatus: Pending - Admin will pay within 24 hours.\nID: #${w.id}`);
+  notifyAdmin(`💰 Withdraw Request!\nPlayer: ${u.name} (${u.id})\nAmount: ${amount.toLocaleString('en-US')} coins ($${w.usd})\nMethod: ${method}\nPay to: ${address}\nID: #${w.id}`);
   return { user: publicUser(u), withdrawal: publicWithdrawal(w), message: 'Request received. Admin will pay within 24 hours.' };
 };
 
@@ -231,6 +262,8 @@ routes['POST /api/admin/withdrawals/paid'] = async (ctx) => {
   if (!w) throw new HttpError(404, 'Not found');
   if (w.status !== 'pending') throw bad('Already ' + w.status);
   w.status = 'paid'; w.paidAt = Date.now(); store.save();
+  notifyPlayer(w.userId, `✅ Withdrawal Paid!\nID: #${w.id} - ${w.amount.toLocaleString('en-US')} coins ($${w.usd}) has been paid to your ${w.method}: ${w.address}.\nThanks for playing Candy Match!`);
+  notifyAdmin(`✅ Withdrawal Paid - #${w.id}\nPlayer: ${w.userName} (${w.userId})\nAmount: ${w.amount.toLocaleString('en-US')} coins ($${w.usd})`);
   return { withdrawal: w };
 };
 routes['POST /api/admin/withdrawals/reject'] = async (ctx) => {
@@ -241,6 +274,8 @@ routes['POST /api/admin/withdrawals/reject'] = async (ctx) => {
   w.status = 'rejected'; w.paidAt = Date.now();
   if (db.users[w.userId]) db.users[w.userId].coins += w.amount;
   store.save();
+  notifyPlayer(w.userId, `❌ Withdrawal Rejected!\nID: #${w.id} - ${w.amount.toLocaleString('en-US')} coins have been refunded to your account.\nReason: Please check your address and try again.`);
+  notifyAdmin(`❌ Withdrawal Rejected - #${w.id}\nPlayer: ${w.userName} (${w.userId})\nAmount: ${w.amount.toLocaleString('en-US')} coins refunded`);
   return { withdrawal: w };
 };
 
