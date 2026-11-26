@@ -5,7 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 const store = require('./store');
 const { verifyInitData } = require('./auth');
-const G = require('../shared/game-core');
+const G = require('./game-core');
 
 const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN || '';
@@ -253,7 +253,7 @@ const PUBLIC = path.join(__dirname, '..', 'public');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
 function serveStatic(req, res, pathname) {
   let file;
-  if (pathname === '/shared/game-core.js') file = path.join(__dirname, '..', 'shared', 'game-core.js');
+  if (pathname === '/game-core.js') file = path.join(__dirname, '..', 'shared', 'game-core.js');
   else {
     const rel = pathname === '/' ? '/index.html' : pathname;
     file = path.normalize(path.join(PUBLIC, rel));
